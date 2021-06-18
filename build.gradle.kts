@@ -1,10 +1,18 @@
+import nu.studer.gradle.credentials.domain.CredentialsContainer
+import java.net.URI
+
 plugins {
     `java-library`
     `maven-publish`
     signing
-    id("io.codearte.nexus-staging") version "0.30.0"
+    id("nu.studer.credentials") version "2.1"
     id("org.cadixdev.licenser") version "0.6.0"
+    id("pl.allegro.tech.build.axion-release") version "1.13.2"
 }
+
+scmVersion.tag.prefix = ""
+
+project.version = scmVersion.version
 
 val artifactId = project.name.toLowerCase()
 base.archivesBaseName = artifactId
@@ -109,17 +117,21 @@ publishing {
     }
 
     repositories {
-        val sonatypeUsername: String? by project
-        val sonatypePassword: String? by project
-        if (sonatypeUsername != null && sonatypePassword != null) {
-            val url = if (isSnapshot) "https://oss.sonatype.org/content/repositories/snapshots/"
-            else "https://oss.sonatype.org/service/local/staging/deploy/maven2/"
-            maven(url) {
-                credentials {
-                    username = sonatypeUsername
-                    password = sonatypePassword
-                }
+        maven {
+            credentials {
+                val credentialsContainer = properties["credentials"] as CredentialsContainer
+                val repoUser = credentialsContainer.propertyMissing("solarRepoUser") as String
+                val repoPass = credentialsContainer.propertyMissing("solarRepoPassword") as String
+                setUsername(repoUser)
+                setPassword(repoPass)
             }
+
+            name = "solar-repo"
+            val base = "https://mvn-repo.solarmc.gg"
+            val releasesRepoUrl = "$base/releases"
+            val snapshotsRepoUrl = "$base/snapshots"
+            val urlString = if (isSnapshot) { snapshotsRepoUrl; } else { releasesRepoUrl; }
+            url = URI(urlString)
         }
     }
 }
@@ -129,7 +141,7 @@ signing {
 }
 
 tasks.withType<Sign> {
-    onlyIf { !isSnapshot }
+    onlyIf { false }
 }
 
 operator fun Property<String>.invoke(v: String) = set(v)
